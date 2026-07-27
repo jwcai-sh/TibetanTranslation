@@ -53,6 +53,16 @@ PDF / image upload
 
 This repository is intended to be shareable with collaborators who only need the Tibetan OCR / translation workflow. Keep AS译林-specific content out of this repo so permissions stay scoped to the workbench only.
 
+## Collaborator requirements
+
+For collaborators, the minimum setup is:
+
+- They only need to be able to run the OCR services in this repository.
+- They do not need to install AS译林.
+- BDRC OCR is the first-priority recognition source.
+- If BDRC OCR quality is not good enough for a page or block, fall back to LLM Vision for comparison or replacement.
+- If they can start `./tibetan-proofreading-app/start_services.sh` and reach the OCR / AI Vision endpoints, they can participate in development.
+
 ## Documentation
 
 - `AGENTS.md` contains the project rules for this repository.

@@ -61,6 +61,7 @@ curl http://127.0.0.1:18092/health
 
 - Default model: `Modern`
 - Default line mode: `line`
+- For collaborator setup, BDRC OCR is the first-choice source; if its recognition quality is insufficient, use the LLM Vision adapter as fallback or comparison.
 - AI Vision OCR endpoint: `POST http://127.0.0.1:18092/ocr`
 - AI Vision OCR defaults to ModelAggregatorService `/api/aggregate/image-to-markdown`.
 - Tibetan AI Vision OCR defaults to Gemini with cross-model fallback disabled. Mathpix responses are rejected because its formula-oriented OCR is not a valid Tibetan OCR fallback.
