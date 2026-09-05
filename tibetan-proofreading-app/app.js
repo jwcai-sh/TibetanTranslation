@@ -287,7 +287,8 @@ function isCloudDeployment() {
 function configureDeploymentEndpoints() {
   if (!isCloudDeployment()) return;
   els.endpointInput.value = `${window.location.origin}/api/ocr`;
-  els.aiOcrEndpointInput.value = `${window.location.origin}/api/ai-ocr`;
+  // The deployed OCR gateway owns the configured Vision provider credentials.
+  els.aiOcrEndpointInput.value = "https://tibetan-proofreading.zeabur.app/api/ai-ocr";
   els.translateEndpointInput.value = `${window.location.origin}/api/translate`;
 }
 
