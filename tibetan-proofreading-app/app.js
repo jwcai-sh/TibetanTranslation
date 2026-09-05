@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-81";
+const APP_BUILD_ID = "20260905-ai-only-82";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -282,6 +282,13 @@ function cacheElements() {
 
 function isCloudDeployment() {
   return window.location.protocol === "https:" || !["127.0.0.1", "localhost", ""].includes(window.location.hostname);
+}
+
+function shouldUseServerPdfRenderer() {
+  // Sending an entire PDF to the cloud renderer just to display one page makes
+  // the source panel wait behind a large upload. PDF.js can render locally;
+  // retain the server renderer only for local deployments.
+  return !isCloudDeployment();
 }
 
 function configureDeploymentEndpoints() {
@@ -2464,7 +2471,7 @@ async function renderCurrentPage() {
   }
 
   const token = ++state.renderToken;
-  if (await renderCurrentPdfPageWithLocalService(token)) {
+  if (shouldUseServerPdfRenderer() && await renderCurrentPdfPageWithLocalService(token)) {
     syncPageControls(true);
     renderActiveSourceHighlight();
     updateOcrPanelForPage();
@@ -3888,7 +3895,7 @@ async function getCurrentPageImageBlob() {
     return state.imageBlob;
   }
 
-  if (state.pdfFile) {
+  if (state.pdfFile && shouldUseServerPdfRenderer()) {
     try {
       return await getRenderedPdfPageBlobWithCache(state.pageNum, Number(els.dpiInput.value) || 260);
     } catch (error) {
