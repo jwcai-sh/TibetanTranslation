@@ -807,12 +807,22 @@ function continueHomeTask(workflow) {
   setStatus(workflow === "translation" ? "没有正在翻译的任务。可以新建翻译项目，或先加载已有源文件。" : "没有正在校对的任务。可以新建 OCR 项目，或先加载已有源文件。", "warn");
 }
 
-function requestCachedProjectSource(project, workflow = "ocr") {
+async function requestCachedProjectSource(project, workflow = "ocr") {
+  try {
+    const sourceFile = await getStoredSourceFile(project.cacheKey);
+    if (sourceFile) {
+      await resumeLocalProject(project, workflow);
+      return;
+    }
+  } catch (error) {
+    console.warn("Failed to check locally stored source file", error);
+  }
+
   if (isCloudDeployment() && project.remoteBookId) {
-    resumeRemoteProject(project, workflow);
+    await resumeRemoteProject(project, workflow);
     return;
   }
-  resumeLocalProject(project, workflow);
+  await resumeLocalProject(project, workflow);
 }
 
 async function resumeLocalProject(project, workflow = "ocr") {
