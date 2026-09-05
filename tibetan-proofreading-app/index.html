@@ -7,13 +7,13 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>藏文典籍 OCR 对照工作台</title>
-    <link rel="stylesheet" href="./styles.css?v=20260717-proofread-markdown-export-43" />
+    <link rel="stylesheet" href="./styles.css?v=20260905-ai-only-73" />
     <script src="./vendor/pdf.min.js" defer></script>
     <script src="./vendor/lucide.min.js" defer></script>
-    <script src="./app.js?v=20260717-proofread-markdown-export-43" defer></script>
+    <script src="./app.js?v=20260905-ai-only-73" defer></script>
   </head>
   <body>
-    <main class="app-shell ocr-only-mode">
+    <main class="app-shell ocr-only-mode ai-only-mode">
       <header class="topbar">
         <div class="brand">
           <span class="brand-mark">藏</span>
@@ -41,13 +41,11 @@
         <div class="control-group">
           <label for="ocrModeSelect">识别引擎</label>
           <select id="ocrModeSelect">
-            <option value="smart" selected>智能（BDRC + LLM）</option>
-            <option value="bdrc">仅本地 BDRC</option>
-            <option value="ai">仅 AI Vision</option>
+            <option value="ai" selected>AI Vision</option>
           </select>
         </div>
         <div class="control-group wide">
-          <label for="endpointInput">BDRC OCR 接口</label>
+          <label for="endpointInput">已停用的 BDRC OCR 接口</label>
           <input id="endpointInput" type="url" value="http://127.0.0.1:18090/ocr" spellcheck="false" />
         </div>
         <div class="control-group wide">
@@ -118,6 +116,10 @@
                 <i data-lucide="file-plus-2"></i>
                 <span>新建 OCR 项目</span>
               </button>
+              <button id="homeNewOcrFolderProjectButton" class="ghost-button compact" type="button">
+                <i data-lucide="folder-plus"></i>
+                <span>导入分册文件夹</span>
+              </button>
               <button id="homeBrowseOcrProjectsButton" class="ghost-button compact" type="button">
                 <i data-lucide="folder-open"></i>
                 <span>浏览项目</span>
@@ -187,6 +189,14 @@
                 type="file"
                 accept=".pdf,.docx,.md,.markdown,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain,image/*"
               />
+              <input
+                id="folderInput"
+                type="file"
+                accept=".pdf,application/pdf"
+                webkitdirectory
+                directory
+                multiple
+              />
             </div>
             <div class="viewer-header-actions">
               <div class="viewer-page-stepper" aria-label="页面导航">
@@ -225,14 +235,14 @@
 
         <div class="pane-resizer" data-resizer="viewer-ocr" aria-hidden="true"></div>
 
-        <section class="ocr-pane" aria-label="BDRC OCR 结果">
+        <section class="ocr-pane" aria-label="AI Vision OCR 结果">
           <div class="pane-header">
             <div>
-              <span id="ocrPaneEyebrow" class="eyebrow">BDRC OCR 结果</span>
+              <span id="ocrPaneEyebrow" class="eyebrow">AI Vision OCR 结果</span>
               <h2 id="ocrTitle">等待识别</h2>
             </div>
             <div id="ocrMeta" class="meta-pill">未识别</div>
-            <button class="pane-collapse-button" type="button" data-collapse-pane="ocr" aria-label="折叠 BDRC OCR 栏" title="折叠 BDRC OCR 栏">
+            <button class="pane-collapse-button" type="button" data-collapse-pane="ocr" aria-label="折叠 AI Vision OCR 栏" title="折叠 AI Vision OCR 栏">
               <i data-lucide="panel-left-close"></i>
             </button>
           </div>
@@ -280,7 +290,7 @@
             </div>
           </div>
 
-          <div id="ocrLineCompare" class="ocr-line-compare" aria-label="BDRC OCR 逐行校对"></div>
+          <div id="ocrLineCompare" class="ocr-line-compare" aria-label="AI Vision OCR 逐行校对"></div>
 
           <textarea
             id="ocrText"
