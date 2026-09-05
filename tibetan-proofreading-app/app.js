@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-73";
+const APP_BUILD_ID = "20260905-ai-only-74";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -1596,6 +1596,11 @@ async function loadSamplePdf() {
 }
 
 async function loadFile(file, options = {}) {
+  if (!isSupportedSourceFile(file)) {
+    throw new Error("只支持 PDF、图片、Markdown、TXT 或 DOCX 文件。");
+  }
+
+  setStatus(`正在载入 ${file.name || "所选文件"}...`, "warn");
   resetDocumentState();
   state.sourceName = file.name;
   state.sourceSize = file.size || 0;
@@ -1609,35 +1614,48 @@ async function loadFile(file, options = {}) {
   }
 
   if (isCloudDeployment() && !options.skipRemoteUpload) {
-    try {
-      await createRemoteBook(file);
-    } catch (error) {
-      setStatus(`书籍写入阿里云 OSS 失败：${error.message || error}`, "error");
-      return;
-    }
+    void createRemoteBook(file)
+      .then(() => {
+        saveCachedResults();
+      })
+      .catch((error) => {
+        console.warn("Failed to create remote book; continuing with local file", error);
+        setStatus(
+          `文件已在当前浏览器载入，但云端书籍保存失败：${error.message || error}`,
+          "warn"
+        );
+      });
   }
 
   if (isPdfFile(file)) {
     await loadPdf(file);
+    saveCachedResults();
     return;
   }
 
   if (isWordFile(file)) {
     await loadWord(file);
+    saveCachedResults();
     return;
   }
 
   if (file.type.startsWith("image/")) {
     await loadImage(file);
+    saveCachedResults();
     return;
   }
 
   if (isMarkdownFile(file)) {
     await loadMarkdown(file);
+    saveCachedResults();
     return;
   }
 
-  setStatus("只支持 PDF、图片或 Markdown 文件。", "error");
+  throw new Error("只支持 PDF、图片、Markdown、TXT 或 DOCX 文件。");
+}
+
+function isSupportedSourceFile(file) {
+  return Boolean(file) && (isPdfFile(file) || isWordFile(file) || file.type.startsWith("image/") || isMarkdownFile(file));
 }
 
 function hasActiveDocument() {
