@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-74";
+const APP_BUILD_ID = "20260905-ai-only-79";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -4161,9 +4161,10 @@ function renderProofreadMergedView() {
     const bdrcLine = bdrcLines[index] || { text: "", bbox: aiLines[index]?.bbox || finalLines[index]?.bbox || null, index };
     const rawAiLine = aiLines[index] || { text: "", bbox: bdrcLine.bbox || finalLines[index]?.bbox || null, index };
     const aiLine = makeProofreadAiLine(compare, rawAiLine, index, rawAiLine.bbox || bdrcLine.bbox || finalLines[index]?.bbox || null);
-    const sourceLine =
+    const exactSourceLine =
       getSourceLineForRow(bdrcLine, aiLine) ||
       getSourceLineForRow(finalLines[index], null);
+    const sourceLine = exactSourceLine || makeEstimatedSourceLineForRow(index, rowCount);
     fragment.appendChild(renderProofreadBlockCard({
       index,
       bdrcLine,
@@ -4186,7 +4187,7 @@ function renderProofreadBlockCard({ index, bdrcLine, aiLine, finalLine, sourceLi
   card.dataset.proofreadBlock = String(index);
   card.dataset.sourceRowIndex = String(index);
   card.classList.toggle("has-source-line", Boolean(sourceLine?.bbox));
-  card.title = sourceLine?.bbox ? `点击同步左栏第 ${index + 1} 个原文 block` : "";
+  card.title = sourceLine?.bbox && !sourceLine.estimated ? `点击同步左栏第 ${index + 1} 个原文 block` : "";
   card.classList.toggle("is-active", state.activeOcrLine === index);
 
   const savedSide = getProofreadDefaultChoice(finalLine, bdrcLine, aiLine);
@@ -4329,7 +4330,7 @@ function renderProofreadSourcePanel(sourceLine, index) {
   const header = document.createElement("div");
   header.className = "proofread-source-header";
   const title = document.createElement("strong");
-  title.textContent = `原文 block ${String(index + 1).padStart(2, "0")} 预览`;
+  title.textContent = `原文 block ${String(index + 1).padStart(2, "0")} 预览${sourceLine?.estimated ? "（估算定位）" : ""}`;
   header.append(title, renderSourcePreviewScaleControls());
   panel.appendChild(header);
 
@@ -4379,7 +4380,6 @@ function renderSourcePreviewScaleButton(action, icon, label) {
 }
 
 function createSourceBlockPreviewCanvas(sourceLine) {
-  if (sourceLine?.estimated) return null;
   const bbox = normalizeBbox(sourceLine?.bbox);
   const source = getVisibleSourceElement();
   if (!bbox || !source) return null;
