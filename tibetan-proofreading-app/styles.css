@@ -313,6 +313,24 @@ button {
   flex: 0 0 auto;
 }
 
+.home-project-delete-confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid #e1bbb6;
+  border-radius: 6px;
+  background: #fff7f5;
+  color: #7f2f28;
+  font-size: 13px;
+}
+
+.home-project-delete-confirm[hidden] {
+  display: none;
+}
+
 .home-project-meta,
 .home-project-progress {
   display: flex;

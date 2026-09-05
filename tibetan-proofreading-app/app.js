@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-85";
+const APP_BUILD_ID = "20260905-ai-only-86";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -137,6 +137,7 @@ const state = {
   editingRoleId: "academic-literal",
   activeWorkflow: "home",
   homeProjectFilter: "all",
+  pendingHomeProjectDeletionId: "",
   folderProjectFiles: new Map(),
   pendingFolderProjectId: "",
   activeFolderProjectId: "",
@@ -1003,21 +1004,44 @@ function renderHomeProjectList(projects) {
   filtered.forEach((project) => {
     const card = document.createElement("article");
     card.className = "home-project-card";
+    const projectId = getHomeProjectId(project);
 
     const titleRow = document.createElement("div");
     titleRow.className = "home-project-title-row";
     const title = document.createElement("h4");
     title.textContent = project.sourceName || "未命名项目";
     const deleteButton = document.createElement("button");
-    deleteButton.className = "icon-button compact danger-action home-project-delete";
+    deleteButton.className = "ghost-button compact danger-action home-project-delete";
     deleteButton.type = "button";
-    deleteButton.innerHTML = '<i data-lucide="trash-2"></i>';
+    deleteButton.innerHTML = '<i data-lucide="trash-2"></i><span>删除项目</span>';
     deleteButton.title = `删除“${project.sourceName || "未命名项目"}”的浏览器项目记录`;
-    deleteButton.setAttribute("aria-label", deleteButton.title);
     deleteButton.addEventListener("click", () => {
-      void deleteHomeProject(project);
+      state.pendingHomeProjectDeletionId = projectId;
+      renderHomeDashboard();
     });
     titleRow.append(title, deleteButton);
+
+    const deleteConfirm = document.createElement("div");
+    deleteConfirm.className = "home-project-delete-confirm";
+    deleteConfirm.hidden = state.pendingHomeProjectDeletionId !== projectId;
+    const confirmText = document.createElement("span");
+    confirmText.textContent = "删除此浏览器项目？";
+    const confirmButton = document.createElement("button");
+    confirmButton.className = "ghost-button compact danger-action";
+    confirmButton.type = "button";
+    confirmButton.textContent = "确认删除";
+    confirmButton.addEventListener("click", () => {
+      void deleteHomeProject(project);
+    });
+    const cancelButton = document.createElement("button");
+    cancelButton.className = "ghost-button compact";
+    cancelButton.type = "button";
+    cancelButton.textContent = "取消";
+    cancelButton.addEventListener("click", () => {
+      state.pendingHomeProjectDeletionId = "";
+      renderHomeDashboard();
+    });
+    deleteConfirm.append(confirmText, confirmButton, cancelButton);
 
     const meta = document.createElement("div");
     meta.className = "home-project-meta";
@@ -1056,7 +1080,7 @@ function renderHomeProjectList(projects) {
       );
     }
 
-    card.append(titleRow, meta, progress);
+    card.append(titleRow, deleteConfirm, meta, progress);
     if (project.kind === "folder") {
       card.append(makeFolderProjectPartsList(project));
     }
@@ -1175,6 +1199,10 @@ function makeHomeProjectButton(label, icon, handler) {
   button.innerHTML = `<i data-lucide="${icon}"></i><span>${label}</span>`;
   button.addEventListener("click", handler);
   return button;
+}
+
+function getHomeProjectId(project) {
+  return project.kind === "folder" ? `folder:${project.id}` : `file:${project.cacheKey}`;
 }
 
 function getHomeProjects() {
@@ -1780,10 +1808,6 @@ async function deleteHomeProject(project) {
   }
 
   const projectName = project.sourceName || "未命名项目";
-  const ok = window.confirm(
-    `删除“${projectName}”将移除本浏览器中的项目卡片、OCR/译文缓存和源文件缓存。OSS 云端文件不会被删除。是否继续？`
-  );
-  if (!ok) return;
 
   try {
     if (project.kind === "folder") {
@@ -1798,6 +1822,7 @@ async function deleteHomeProject(project) {
         resetDocumentState();
       }
     }
+    state.pendingHomeProjectDeletionId = "";
     setStatus(`已删除“${projectName}”的浏览器项目记录。云端文件未删除。`, "ok");
     renderHomeDashboard();
   } catch (error) {
