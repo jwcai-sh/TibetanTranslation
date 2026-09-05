@@ -1778,7 +1778,7 @@ async function loadPdf(file) {
     "ok"
   );
   refreshControls();
-  await renderCurrentPage({ preferBrowser: true });
+  await renderCurrentPage();
   await primeCurrentPageDirectText("load");
   const loadedDoc = state.pdfDoc;
   scheduleIdleWork(() => {
@@ -2437,7 +2437,7 @@ function getResultSourceLabel(result) {
   }
 }
 
-async function renderCurrentPage(options = {}) {
+async function renderCurrentPage() {
   if (!state.pageCount) {
     return;
   }
@@ -2453,7 +2453,7 @@ async function renderCurrentPage(options = {}) {
   }
 
   const token = ++state.renderToken;
-  if (!options.preferBrowser && await renderCurrentPdfPageWithLocalService(token)) {
+  if (await renderCurrentPdfPageWithLocalService(token)) {
     syncPageControls(true);
     renderActiveSourceHighlight();
     updateOcrPanelForPage();
