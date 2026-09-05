@@ -1613,41 +1613,31 @@ async function loadFile(file, options = {}) {
     state.remoteBookId = options.remoteBookId;
   }
 
-  if (isCloudDeployment() && !options.skipRemoteUpload) {
-    void createRemoteBook(file)
-      .then(() => {
-        saveCachedResults();
-      })
-      .catch((error) => {
-        console.warn("Failed to create remote book; continuing with local file", error);
-        setStatus(
-          `文件已在当前浏览器载入，但云端书籍保存失败：${error.message || error}`,
-          "warn"
-        );
-      });
-  }
-
   if (isPdfFile(file)) {
     await loadPdf(file);
     saveCachedResults();
+    queueRemoteBookUpload(file, options);
     return;
   }
 
   if (isWordFile(file)) {
     await loadWord(file);
     saveCachedResults();
+    queueRemoteBookUpload(file, options);
     return;
   }
 
   if (file.type.startsWith("image/")) {
     await loadImage(file);
     saveCachedResults();
+    queueRemoteBookUpload(file, options);
     return;
   }
 
   if (isMarkdownFile(file)) {
     await loadMarkdown(file);
     saveCachedResults();
+    queueRemoteBookUpload(file, options);
     return;
   }
 
@@ -1656,6 +1646,24 @@ async function loadFile(file, options = {}) {
 
 function isSupportedSourceFile(file) {
   return Boolean(file) && (isPdfFile(file) || isWordFile(file) || file.type.startsWith("image/") || isMarkdownFile(file));
+}
+
+function queueRemoteBookUpload(file, options = {}) {
+  if (!isCloudDeployment() || options.skipRemoteUpload || state.remoteBookId) return;
+
+  const cacheKey = state.cacheKey;
+  scheduleIdleWork(() => {
+    if (state.cacheKey !== cacheKey || state.remoteBookId) return;
+    void createRemoteBook(file)
+      .then(() => saveCachedResults())
+      .catch((error) => {
+        console.warn("Failed to create remote book; continuing with local file", error);
+        setStatus(
+          `文件已在当前浏览器载入，但云端书籍保存失败：${error.message || error}`,
+          "warn"
+        );
+      });
+  });
 }
 
 function hasActiveDocument() {
@@ -1760,7 +1768,7 @@ async function loadPdf(file) {
     "ok"
   );
   refreshControls();
-  await renderCurrentPage();
+  await renderCurrentPage({ preferBrowser: true });
   await primeCurrentPageDirectText("load");
   const loadedDoc = state.pdfDoc;
   scheduleIdleWork(() => {
@@ -2419,7 +2427,7 @@ function getResultSourceLabel(result) {
   }
 }
 
-async function renderCurrentPage() {
+async function renderCurrentPage(options = {}) {
   if (!state.pageCount) {
     return;
   }
@@ -2435,7 +2443,7 @@ async function renderCurrentPage() {
   }
 
   const token = ++state.renderToken;
-  if (await renderCurrentPdfPageWithLocalService(token)) {
+  if (!options.preferBrowser && await renderCurrentPdfPageWithLocalService(token)) {
     syncPageControls(true);
     renderActiveSourceHighlight();
     updateOcrPanelForPage();
