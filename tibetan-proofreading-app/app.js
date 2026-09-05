@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-79";
+const APP_BUILD_ID = "20260905-ai-only-80";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -1558,11 +1558,11 @@ function setSourcePreviewScale(scale, persist = true, rerender = false) {
   document.documentElement.style.setProperty("--source-preview-scale", String(nextScale));
   document.documentElement.style.setProperty(
     "--source-preview-min-height",
-    `${Math.round(88 * nextScale)}px`,
+    `${Math.round(76 * nextScale)}px`,
   );
   document.documentElement.style.setProperty(
     "--source-preview-max-height",
-    `${Math.round(116 * nextScale)}px`,
+    `${Math.round(104 * nextScale)}px`,
   );
   if (persist) {
     window.localStorage.setItem(SOURCE_PREVIEW_SCALE_KEY, String(nextScale));
@@ -4392,14 +4392,20 @@ function createSourceBlockPreviewCanvas(sourceLine) {
   const rawY = bbox.y * sourceHeight;
   const rawWidth = Math.max(1, bbox.width * sourceWidth);
   const rawHeight = Math.max(1, bbox.height * sourceHeight);
+  // Some AI Vision responses attach a paragraph-sized box to one result row.
+  // Preview the box's center line so the original can be compared row-by-row.
+  const lineHeight = rawHeight <= sourceHeight * 0.075
+    ? rawHeight
+    : clamp(rawHeight * 0.3, sourceHeight * 0.024, sourceHeight * 0.07);
+  const lineY = rawY + (rawHeight - lineHeight) / 2;
   // OCR line boxes can stop before Tibetan stacked marks or the final glyph.
   // Add a proportional margin for the preview without changing the source bbox.
   const padX = Math.max(12, rawWidth * 0.18);
-  const padY = Math.max(8, rawHeight * 0.25);
+  const padY = Math.max(8, lineHeight * 0.4);
   const sx = clamp(rawX - padX, 0, Math.max(0, sourceWidth - 1));
-  const sy = clamp(rawY - padY, 0, Math.max(0, sourceHeight - 1));
+  const sy = clamp(lineY - padY, 0, Math.max(0, sourceHeight - 1));
   const ex = clamp(rawX + rawWidth + padX, sx + 1, sourceWidth);
-  const ey = clamp(rawY + rawHeight + padY, sy + 1, sourceHeight);
+  const ey = clamp(lineY + lineHeight + padY, sy + 1, sourceHeight);
   const sw = Math.max(1, ex - sx);
   const sh = Math.max(1, ey - sy);
 
@@ -4413,9 +4419,9 @@ function createSourceBlockPreviewCanvas(sourceLine) {
   );
   const maxWidth = 1800 * Math.max(1, previewScale);
   const maxScale = Math.max(1, Math.min(2.25, maxWidth / sw));
-  const heightScale = (84 * previewScale) / sh;
-  const widthScale = (760 * previewScale) / sw;
-  const scale = Math.min(maxScale, Math.max(0.5, heightScale), Math.max(0.5, widthScale));
+  const heightScale = (92 * previewScale) / sh;
+  const widthScale = (840 * previewScale) / sw;
+  const scale = Math.min(maxScale, Math.max(0.75, heightScale, widthScale));
   canvas.width = Math.max(1, Math.round(sw * scale));
   canvas.height = Math.max(1, Math.round(sh * scale));
   const ctx = canvas.getContext("2d");

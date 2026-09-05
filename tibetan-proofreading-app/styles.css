@@ -1697,8 +1697,8 @@ body.is-resizing-panes * {
 .proofread-source-preview {
   width: 100%;
   max-width: 100%;
-  min-height: var(--source-preview-min-height, 88px);
-  padding: 8px 12px 10px;
+  min-height: var(--source-preview-min-height, 76px);
+  padding: 6px 12px 8px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -1713,7 +1713,7 @@ body.is-resizing-panes * {
 .proofread-source-preview canvas {
   width: auto;
   max-width: 100%;
-  max-height: var(--source-preview-max-height, 116px);
+  max-height: var(--source-preview-max-height, 104px);
   height: auto;
   min-width: 0;
   flex: 0 1 auto;
