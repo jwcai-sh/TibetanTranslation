@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-86";
+const APP_BUILD_ID = "20260905-ai-only-87";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -5454,14 +5454,21 @@ function getCurrentSourceBlockRecords() {
 
   const compare = getOcrSourceCompare(result);
   if (compare) {
-    const aiLines = getEffectiveOcrSideLines(compare.llm);
-    const count = aiLines.length;
+    const bdrcLines = getEffectiveOcrSideLines(compare.bdrc);
+    const aiLines = getEffectiveOcrSideLines(compare.llm, bdrcLines);
+    const finalLines = result.lines?.length
+      ? result.lines
+      : makeOcrLinesFromText(result.text || "", bdrcLines);
+    const count = Math.max(bdrcLines.length, aiLines.length, finalLines.length);
     return Array.from({ length: count }, (_, index) => {
       const aiLine = aiLines[index] || { text: "" };
+      const sourceLine = getSourceLineForRow(bdrcLines[index], aiLine)
+        || getSourceLineForRow(finalLines[index], null)
+        || makeEstimatedSourceLineForRow(index, count);
       return makeSourceBlockRecord({
         index,
-        line: aiLine,
-        hasBdrc: false,
+        line: sourceLine,
+        hasBdrc: Boolean(String(bdrcLines[index]?.text || "").trim()),
         hasAi: Boolean(String(aiLine.text || "").trim()),
         hasDifference: false,
       });
@@ -5601,10 +5608,6 @@ function activateOcrSourceBlock(line, index, options = {}) {
   if (options.scrollRows) {
     scrollOcrRowsIntoView(index);
   }
-  if (line?.estimated) {
-    showSourceLineHighlight(null);
-    return;
-  }
   showSourceLineHighlight(line, { scrollIntoView: options.scrollSource !== false });
 }
 
@@ -5662,7 +5665,7 @@ function showSourceLineHighlight(line, options = {}) {
   const normalized = normalizeBbox(bbox);
   const source = getVisibleSourceElement();
   if (!normalized || !source) {
-    els.sourceLineHighlight.classList.remove("is-visible");
+    els.sourceLineHighlight.classList.remove("is-visible", "is-estimated");
     return;
   }
 
@@ -5688,6 +5691,7 @@ function showSourceLineHighlight(line, options = {}) {
     width: `${width}px`,
     height: `${height}px`,
   });
+  els.sourceLineHighlight.classList.toggle("is-estimated", Boolean(line?.estimated));
   els.sourceLineHighlight.classList.add("is-visible");
 
   if (options.scrollIntoView !== false) {
@@ -5717,8 +5721,13 @@ function getSourceLineByIndex(index) {
   if (compare) {
     const bdrcLines = getEffectiveOcrSideLines(compare.bdrc);
     const aiLines = getEffectiveOcrSideLines(compare.llm, bdrcLines);
-    const count = Math.max(bdrcLines.length, aiLines.length);
-    return getSourceLineForRow(bdrcLines[index], aiLines[index]);
+    const finalLines = result?.lines?.length
+      ? result.lines
+      : makeOcrLinesFromText(result?.text || "", bdrcLines);
+    const count = Math.max(bdrcLines.length, aiLines.length, finalLines.length);
+    return getSourceLineForRow(bdrcLines[index], aiLines[index])
+      || getSourceLineForRow(finalLines[index], null)
+      || makeEstimatedSourceLineForRow(index, count);
   }
   const lines = result?.lines?.length ? result.lines : extractOcrLines(result?.raw);
   return getSourceLineForRow(lines?.[index], null);

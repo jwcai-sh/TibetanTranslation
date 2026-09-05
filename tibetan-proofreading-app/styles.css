@@ -1191,6 +1191,12 @@ body.is-resizing-panes * {
   display: block;
 }
 
+.source-line-highlight.is-estimated {
+  border-color: #d97706;
+  border-style: dashed;
+  background: rgba(217, 119, 6, 0.1);
+}
+
 .empty-state {
   position: absolute;
   inset: 0;
