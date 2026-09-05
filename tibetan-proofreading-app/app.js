@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-80";
+const APP_BUILD_ID = "20260905-ai-only-81";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -839,12 +839,17 @@ async function resumeLocalProject(project, workflow = "ocr") {
     console.warn("Failed to restore cached source file", error);
   }
   showWorkbenchView(workflow);
-  setStatus(`本机缓存已找到“${project.sourceName}”，但浏览器未保存源文件；请选择原始文件以恢复预览和校对进度。`, "warn");
-  window.setTimeout(() => {
-    if (!els.fileInput) return;
-    els.fileInput.value = "";
-    els.fileInput.click();
-  }, 0);
+  if (workflow === "ocr") setOcrView("proofread");
+  setStatus(`已打开“${project.sourceName}”的项目记录；此浏览器没有原文副本。需要恢复原文预览时，请点击“加载文件”并选择同一份源文件。`, "warn");
+}
+
+function requestProjectSourceFile(project, workflow = "ocr") {
+  showWorkbenchView(workflow);
+  if (workflow === "ocr") setOcrView("proofread");
+  setStatus(`请重新选择“${project.sourceName}”的原始文件以恢复原文预览和校对进度。`, "warn");
+  if (!els.fileInput) return;
+  els.fileInput.value = "";
+  els.fileInput.click();
 }
 
 function openSourceDatabase() {
@@ -1008,10 +1013,15 @@ function renderHomeProjectList(projects) {
         makeHomeProjectButton("打开首个分册", "scan-text", () => openFolderProject(project, "ocr")),
         makeHomeProjectButton("重选总文件夹", "folder-open", () => requestFolderProjectSource(project)),
       );
-    } else {
+    } else if (project.remoteBookId) {
       actions.append(
         makeHomeProjectButton("继续校对", "scan-text", () => openHomeProject(project, "ocr")),
         makeHomeProjectButton("继续翻译", "languages", () => openHomeProject(project, "translation")),
+      );
+    } else {
+      actions.append(
+        makeHomeProjectButton("查看校对记录", "scan-text", () => openHomeProject(project, "ocr")),
+        makeHomeProjectButton("重新选择源文件", "folder-open", () => requestProjectSourceFile(project, "ocr")),
       );
     }
 
@@ -1035,7 +1045,7 @@ function makeHomeProjectFilterSummary(filter, filteredCount, totalCount) {
   if (filter === "translation") {
     return `正在显示藏译中项目：${filteredCount} / ${totalCount}。点击项目卡片中的“继续翻译”进入指定项目。`;
   }
-  return `正在显示全部本机项目：${filteredCount} / ${totalCount}。`;
+  return `正在显示浏览器项目记录：${filteredCount} / ${totalCount}。`;
 }
 
 function openHomeProject(project, workflow) {

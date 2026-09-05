@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import oss2
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -134,7 +135,11 @@ def get_book_source(book_id: str) -> Response:
     return Response(
         content=body,
         media_type=str(metadata.get("content_type") or "application/octet-stream"),
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        headers={
+            # HTTP headers must be ASCII. Keep an ASCII fallback and provide the
+            # real Chinese/Tibetan filename using RFC 5987 encoding.
+            "Content-Disposition": f"attachment; filename=source.pdf; filename*=UTF-8''{quote(safe_name)}",
+        },
     )
 
 
