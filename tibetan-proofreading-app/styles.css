@@ -583,7 +583,13 @@ button:disabled {
   gap: 16px;
 }
 
-.workspace.ocr-only-mode,
+.workspace.ocr-only-mode {
+  grid-template-columns:
+    minmax(var(--viewer-min), var(--viewer-width))
+    8px
+    minmax(var(--ocr-min), 1fr);
+}
+
 .workspace.translation-collapsed {
   grid-template-columns:
     minmax(var(--viewer-min), var(--viewer-width))
@@ -2252,7 +2258,13 @@ body.is-resizing-panes * {
       minmax(var(--ai-ocr-min), var(--ai-ocr-width));
   }
 
-  .workspace.ocr-only-mode,
+  .workspace.ocr-only-mode {
+    grid-template-columns:
+      minmax(var(--viewer-min), var(--viewer-width))
+      8px
+      minmax(var(--ocr-min), 1fr);
+  }
+
   .workspace.translation-collapsed {
     grid-template-columns:
       minmax(var(--viewer-min), var(--viewer-width))
