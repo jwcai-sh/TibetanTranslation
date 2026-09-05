@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-83";
+const APP_BUILD_ID = "20260905-ai-only-84";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -816,6 +816,10 @@ function continueHomeTask(workflow) {
 }
 
 async function requestCachedProjectSource(project, workflow = "ocr") {
+  showWorkbenchView(workflow);
+  if (workflow === "ocr") setOcrView("proofread");
+  setStatus(`正在打开“${project.sourceName}”并恢复校对进度...`, "warn");
+
   try {
     const sourceFile = await getStoredSourceFile(project.cacheKey);
     if (sourceFile) {
@@ -1020,14 +1024,10 @@ function renderHomeProjectList(projects) {
         makeHomeProjectButton("打开首个分册", "scan-text", () => openFolderProject(project, "ocr")),
         makeHomeProjectButton("重选总文件夹", "folder-open", () => requestFolderProjectSource(project)),
       );
-    } else if (project.remoteBookId) {
+    } else {
       actions.append(
         makeHomeProjectButton("继续校对", "scan-text", () => openHomeProject(project, "ocr")),
         makeHomeProjectButton("继续翻译", "languages", () => openHomeProject(project, "translation")),
-      );
-    } else {
-      actions.append(
-        makeHomeProjectButton("查看校对记录", "scan-text", () => openHomeProject(project, "ocr")),
         makeHomeProjectButton("重新选择源文件", "folder-open", () => requestProjectSourceFile(project, "ocr")),
       );
     }
