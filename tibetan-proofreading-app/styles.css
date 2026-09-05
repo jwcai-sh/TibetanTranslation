@@ -297,6 +297,22 @@ button {
   overflow-wrap: anywhere;
 }
 
+.home-project-title-row {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-project-title-row h4 {
+  flex: 1;
+}
+
+.home-project-delete {
+  flex: 0 0 auto;
+}
+
 .home-project-meta,
 .home-project-progress {
   display: flex;

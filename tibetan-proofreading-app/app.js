@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-84";
+const APP_BUILD_ID = "20260905-ai-only-85";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -903,6 +903,18 @@ async function getStoredSourceFile(cacheKey) {
   return file;
 }
 
+async function removeStoredSourceFile(cacheKey) {
+  if (!cacheKey || !window.indexedDB) return;
+  const database = await openSourceDatabase();
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction(SOURCE_STORE_NAME, "readwrite");
+    transaction.objectStore(SOURCE_STORE_NAME).delete(cacheKey);
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error || new Error("无法删除浏览器源文件缓存"));
+  });
+  database.close();
+}
+
 async function resumeRemoteProject(project, workflow = "ocr") {
   showWorkbenchView(workflow);
   setStatus(`正在恢复云端项目“${project.sourceName}”...`, "warn");
@@ -992,8 +1004,20 @@ function renderHomeProjectList(projects) {
     const card = document.createElement("article");
     card.className = "home-project-card";
 
+    const titleRow = document.createElement("div");
+    titleRow.className = "home-project-title-row";
     const title = document.createElement("h4");
     title.textContent = project.sourceName || "未命名项目";
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "icon-button compact danger-action home-project-delete";
+    deleteButton.type = "button";
+    deleteButton.innerHTML = '<i data-lucide="trash-2"></i>';
+    deleteButton.title = `删除“${project.sourceName || "未命名项目"}”的浏览器项目记录`;
+    deleteButton.setAttribute("aria-label", deleteButton.title);
+    deleteButton.addEventListener("click", () => {
+      void deleteHomeProject(project);
+    });
+    titleRow.append(title, deleteButton);
 
     const meta = document.createElement("div");
     meta.className = "home-project-meta";
@@ -1032,7 +1056,7 @@ function renderHomeProjectList(projects) {
       );
     }
 
-    card.append(title, meta, progress);
+    card.append(titleRow, meta, progress);
     if (project.kind === "folder") {
       card.append(makeFolderProjectPartsList(project));
     }
@@ -1747,6 +1771,39 @@ function deleteCurrentProject() {
   resetDocumentState();
   setStatus(`已删除“${projectName}”的本地项目缓存。源文件未删除。`, "ok");
   renderHomeDashboard();
+}
+
+async function deleteHomeProject(project) {
+  if (state.isOcrBusy || state.isTranslateBusy) {
+    setStatus("OCR 或翻译正在运行，请等当前任务结束后再删除项目。", "warn");
+    return;
+  }
+
+  const projectName = project.sourceName || "未命名项目";
+  const ok = window.confirm(
+    `删除“${projectName}”将移除本浏览器中的项目卡片、OCR/译文缓存和源文件缓存。OSS 云端文件不会被删除。是否继续？`
+  );
+  if (!ok) return;
+
+  try {
+    if (project.kind === "folder") {
+      const remaining = getStoredFolderProjects().filter((item) => item.id !== project.id);
+      window.localStorage.setItem(FOLDER_PROJECTS_KEY, JSON.stringify(remaining));
+      state.folderProjectFiles.delete(project.id);
+      if (state.activeFolderProjectId === project.id) state.activeFolderProjectId = "";
+    } else {
+      window.localStorage.removeItem(project.cacheKey);
+      await removeStoredSourceFile(project.cacheKey);
+      if (project.isActive || state.cacheKey === project.cacheKey) {
+        resetDocumentState();
+      }
+    }
+    setStatus(`已删除“${projectName}”的浏览器项目记录。云端文件未删除。`, "ok");
+    renderHomeDashboard();
+  } catch (error) {
+    console.error("Failed to delete home project", error);
+    setStatus(`删除“${projectName}”失败：${error.message || error}`, "error");
+  }
 }
 
 function isMarkdownFile(file) {
