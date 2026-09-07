@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260905-ai-only-87";
+const APP_BUILD_ID = "20260907-line-ocr-01";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -2851,16 +2851,48 @@ async function runOcrForCurrentPage(options = {}) {
     if (!options.skipBusy) {
       setBusy(true);
     }
-    setStatus(`正在生成第 ${state.pageNum} 页 OCR 图片...`, "warn");
-    const blob = await getCurrentPageImageBlob();
+    setStatus(`正在生成第 ${state.pageNum} 页逐行 OCR 图片...`, "warn");
+    const lineImages = await getCurrentPageLineOcrImages();
+    const lineResults = [];
+    let model = "";
+    let provider = "";
 
-    setStatus("正在调用 AI Vision OCR 接口...", "warn");
-    const aiParsed = await callOcrEndpoint(aiEndpoint, blob, {
-      engine: "ai_vision",
-      mode: "ai-only",
-      prompt: buildAiOcrPrompt(""),
+    for (const lineImage of lineImages) {
+      setStatus(
+        `正在识别第 ${state.pageNum} 页第 ${lineImage.index + 1} / ${lineImages.length} 行...`,
+        "warn",
+      );
+      try {
+        const aiParsed = await callOcrEndpoint(aiEndpoint, lineImage.blob, {
+          engine: "ai_vision",
+          mode: "ai-only-line",
+          block_index: lineImage.index,
+          block_count: lineImages.length,
+          prompt: buildAiOcrPrompt("", { singleLine: true }),
+        });
+        model ||= getOcrResponseModel(aiParsed.raw);
+        provider ||= getOcrResponseProvider(aiParsed.raw);
+        lineResults.push({
+          text: getSingleLineOcrText(aiParsed),
+          bbox: lineImage.bbox,
+          index: lineImage.index,
+        });
+      } catch (lineError) {
+        lineResults.push({
+          text: "",
+          bbox: lineImage.bbox,
+          index: lineImage.index,
+          error: true,
+          errorMessage: formatNetworkError(lineError, aiEndpoint, "ai-ocr"),
+        });
+      }
+    }
+    saveLineOcrResults({
+      lines: lineResults,
+      model,
+      provider,
+      statusMessage: `第 ${state.pageNum} 页已完成 ${lineImages.length} 行 AI Vision 识别。`,
     });
-    saveOcrResultFromParsed(aiParsed, "ai-vision", `第 ${state.pageNum} 页 AI Vision 识别完成。`);
   } catch (error) {
     setStatus(
       `AI Vision OCR 调用失败：${formatNetworkError(error, aiEndpoint, "ai-ocr")}`,
@@ -3200,7 +3232,14 @@ function getUniqueHighRiskClustersFromText(text) {
     });
 }
 
-function buildAiOcrPrompt(bdrcText) {
+function buildAiOcrPrompt(bdrcText, options = {}) {
+  if (options.singleLine) {
+    return [
+      "图片中只包含一行藏文印刷体。请只识别这一行。",
+      "重点检查上加字、下加字、元音符号和堆叠字，不要根据语义自由扩写。",
+      "严格只输出一行纯藏文文本；不要编号、解释、Markdown、代码块或换行。",
+    ].join("\n\n");
+  }
   const bdrcLineCount = countTextLines(bdrcText);
   return [
     "请识别图片中的藏文印刷体文字。",
@@ -3212,6 +3251,60 @@ function buildAiOcrPrompt(bdrcText) {
     "只输出纯藏文文本，不要输出编号、解释、Markdown 表格或代码块。",
     bdrcText ? `BDRC OCR 初稿：\n${bdrcText}` : "",
   ].filter(Boolean).join("\n\n");
+}
+
+function getSingleLineOcrText(parsed) {
+  return getParsedOcrText(parsed)
+    .split(/\r?\n/)
+    .map((line) => normalizeOcrTextSpacing(line.trim()))
+    .filter(Boolean)
+    .join("");
+}
+
+function saveLineOcrResults({ lines, model, provider, statusMessage }) {
+  const normalizedLines = lines.map((line, index) => ({
+    text: normalizeOcrTextSpacing(line.text || ""),
+    bbox: normalizeBbox(line.bbox),
+    index,
+    error: Boolean(line.error),
+    errorMessage: String(line.errorMessage || ""),
+  }));
+  const text = normalizedLines.map((line) => line.text).join("\n").trim();
+  const recognizedAt = new Date().toISOString();
+  const compare = {
+    note: "AI Vision 已按原文逐行识别：每个 block 与一行原文一一对应。",
+    bdrc: { label: "BDRC", text: "", lines: [] },
+    llm: {
+      label: "AI Vision",
+      text,
+      lines: normalizedLines,
+      model,
+      provider,
+      recognizedAt,
+      expectedLineCount: normalizedLines.length,
+      returnedLineCount: countNonEmptyOcrLines(normalizedLines),
+    },
+  };
+  state.ocrResults.set(state.pageNum, {
+    text,
+    raw: {
+      source: "ai-vision-line",
+      model,
+      provider,
+      lines: normalizedLines,
+    },
+    compare,
+    lines: normalizedLines,
+    source: "ai-vision-line",
+    updatedAt: recognizedAt,
+  });
+  saveCachedResults();
+  els.ocrText.value = text;
+  setOcrView("proofread");
+  setStatus(statusMessage, normalizedLines.some((line) => line.error) ? "warn" : "ok");
+  updateOcrPanelForPage();
+  updateSummary();
+  updateThumbnailState();
 }
 
 async function extractCurrentPdfPageText() {
@@ -4001,6 +4094,67 @@ async function getCurrentPageImageBlob() {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob);
       else reject(new Error("无法生成当前页 PNG。"));
+    }, "image/png");
+  });
+}
+
+async function getCurrentPageLineOcrImages() {
+  const pageBlob = await getCurrentPageImageBlob();
+  const sourceImage = await loadImageFromBlob(pageBlob);
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = sourceImage.naturalWidth || sourceImage.width;
+    canvas.height = sourceImage.naturalHeight || sourceImage.height;
+    const context = canvas.getContext("2d", { alpha: false });
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+    const layout = window.TibetanLineLayout;
+    const bands = layout?.detectTextLineBands(context.getImageData(0, 0, canvas.width, canvas.height)) || [];
+    if (!bands.length) {
+      throw new Error("未能从当前页检测出文字行，无法执行逐行 OCR。");
+    }
+    return Promise.all(bands.map(async (band) => ({
+      index: band.index,
+      bbox: band.bbox,
+      blob: await cropCanvasToBlob(canvas, band.bbox),
+    })));
+  } finally {
+    sourceImage.remove();
+  }
+}
+
+function loadImageFromBlob(blob) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("无法读取当前页图像。"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+async function cropCanvasToBlob(canvas, bbox) {
+  const normalized = normalizeBbox(bbox);
+  if (!normalized) throw new Error("原文行坐标无效。");
+  const sx = Math.floor(normalized.x * canvas.width);
+  const sy = Math.floor(normalized.y * canvas.height);
+  const sw = Math.max(1, Math.ceil(normalized.width * canvas.width));
+  const sh = Math.max(1, Math.ceil(normalized.height * canvas.height));
+  const crop = document.createElement("canvas");
+  crop.width = sw;
+  crop.height = sh;
+  crop.getContext("2d", { alpha: false }).drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  return new Promise((resolve, reject) => {
+    crop.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("无法生成原文行图片。"));
     }, "image/png");
   });
 }
