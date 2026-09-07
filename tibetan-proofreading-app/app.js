@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260907-cloud-book-route-01";
+const APP_BUILD_ID = "20260907-line-layout-v2";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -2203,6 +2203,7 @@ function serializeResultMap(map) {
       lines: (result.lines || []).map((line, index) => ({
         text: line.text || "",
         bbox: normalizeBbox(line.bbox),
+        layoutVersion: String(line.layoutVersion || ""),
         index,
       })),
       compare: normalizeOcrCompare(result.compare),
@@ -3196,6 +3197,7 @@ function normalizeOcrCompareSide(side) {
         return {
           text: normalizeOcrTextSpacing(line?.text || line?.content || line?.value || ""),
           bbox: normalizeBbox(line?.bbox || line?.box || line?.bounding_box),
+          layoutVersion: String(line?.layoutVersion || ""),
           index,
           error: Boolean(line?.error),
           missing: Boolean(line?.missing),
@@ -3275,6 +3277,7 @@ function saveLineOcrResults({ lines, model, provider, statusMessage }) {
   const normalizedLines = lines.map((line, index) => ({
     text: normalizeOcrTextSpacing(line.text || ""),
     bbox: normalizeBbox(line.bbox),
+    layoutVersion: window.TibetanLineLayout?.CURRENT_LINE_LAYOUT_VERSION || "",
     index,
     error: Boolean(line.error),
     errorMessage: String(line.errorMessage || ""),
@@ -4427,7 +4430,9 @@ function renderProofreadMergedView() {
     const exactSourceLine =
       getSourceLineForRow(bdrcLine, aiLine) ||
       getSourceLineForRow(finalLines[index], null);
-    const sourceLine = exactSourceLine || makeEstimatedSourceLineForRow(index, rowCount);
+    const sourceLine = exactSourceLine && !window.TibetanLineLayout?.isCurrentLineLayout(exactSourceLine)
+      ? { stale: true, index }
+      : exactSourceLine || makeEstimatedSourceLineForRow(index, rowCount);
     fragment.appendChild(renderProofreadBlockCard({
       index,
       bdrcLine,
@@ -4514,6 +4519,7 @@ function makeProofreadAiLine(compare, rawAiLine, index, fallbackBbox = null) {
   const line = {
     text: String(rawAiLine?.text || ""),
     bbox: normalizeBbox(rawAiLine?.bbox) || normalizeBbox(fallbackBbox),
+    layoutVersion: String(rawAiLine?.layoutVersion || ""),
     index,
     error: Boolean(rawAiLine?.error),
     missing: Boolean(rawAiLine?.missing),
@@ -4593,17 +4599,24 @@ function renderProofreadSourcePanel(sourceLine, index) {
   const header = document.createElement("div");
   header.className = "proofread-source-header";
   const title = document.createElement("strong");
-  title.textContent = `原文 block ${String(index + 1).padStart(2, "0")} 预览${sourceLine?.estimated ? "（估算定位）" : ""}`;
+  const locationLabel = sourceLine?.stale
+    ? "（需重新识别）"
+    : sourceLine?.estimated
+      ? "（估算定位）"
+      : "";
+  title.textContent = `原文 block ${String(index + 1).padStart(2, "0")} 预览${locationLabel}`;
   header.append(title, renderSourcePreviewScaleControls());
   panel.appendChild(header);
 
-  const preview = sourceLine?.estimated ? null : createSourceBlockPreviewCanvas(sourceLine);
+  const preview = sourceLine?.estimated || sourceLine?.stale ? null : createSourceBlockPreviewCanvas(sourceLine);
   if (preview) {
     panel.classList.add("has-preview");
     panel.appendChild(preview);
   } else {
     const fallback = document.createElement("span");
-    fallback.textContent = sourceLine?.estimated
+    fallback.textContent = sourceLine?.stale
+      ? "旧逐行坐标来自已淘汰的分行规则。重新识别本页后显示这一行原文。"
+      : sourceLine?.estimated
       ? "旧识别结果没有逐行坐标。重新识别后显示这一行原文。"
       : "当前 block 没有可用坐标预览，可在左栏查看整页原文。";
     panel.appendChild(fallback);
@@ -5300,6 +5313,7 @@ function getEffectiveOcrSideLines(sideData, fallbackLines = []) {
   return storedLines.map((line, index) => ({
     text: normalizeOcrTextSpacing(line?.text || textLines[index]?.text || ""),
     bbox: normalizeBbox(line?.bbox) || normalizeBbox(textLines[index]?.bbox) || normalizeBbox(fallbackLines[index]?.bbox),
+    layoutVersion: String(line?.layoutVersion || textLines[index]?.layoutVersion || fallbackLines[index]?.layoutVersion || ""),
     index,
     error: Boolean(line?.error),
     missing: Boolean(line?.missing),

@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { detectTextLineBands } = require("../line-layout.js");
+const { detectTextLineBands, isCurrentLineLayout } = require("../line-layout.js");
 
 function makeImage(width, height, bands) {
   const pixels = new Uint8ClampedArray(width * height * 4).fill(255);
@@ -56,4 +56,9 @@ test("detectTextLineBands keeps Tibetan text rows separate across small vertical
   const bands = detectTextLineBands(image);
 
   assert.equal(bands.length, 3);
+});
+
+test("isCurrentLineLayout rejects cached coordinates from an older segmenter", () => {
+  assert.equal(isCurrentLineLayout({}), false);
+  assert.equal(isCurrentLineLayout({ layoutVersion: "20260907-row-gap-003" }), true);
 });

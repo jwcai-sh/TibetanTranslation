@@ -5,6 +5,12 @@
   }
   root.TibetanLineLayout = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, () => {
+  const CURRENT_LINE_LAYOUT_VERSION = "20260907-row-gap-003";
+
+  function isCurrentLineLayout(line) {
+    return line?.layoutVersion === CURRENT_LINE_LAYOUT_VERSION;
+  }
+
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -80,5 +86,5 @@
       .map((band, index) => ({ ...band, index }));
   }
 
-  return { detectTextLineBands };
+  return { CURRENT_LINE_LAYOUT_VERSION, detectTextLineBands, isCurrentLineLayout };
 });
