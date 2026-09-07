@@ -45,3 +45,15 @@ test("detectTextLineBands ignores thin full-width page rules", () => {
 
   assert.equal(bands.length, 2);
 });
+
+test("detectTextLineBands keeps Tibetan text rows separate across small vertical gaps", () => {
+  const image = makeImage(1000, 2000, [
+    { y: 600, h: 34 },
+    { y: 644, h: 34 },
+    { y: 688, h: 34 },
+  ]);
+
+  const bands = detectTextLineBands(image);
+
+  assert.equal(bands.length, 3);
+});

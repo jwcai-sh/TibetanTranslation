@@ -24,7 +24,9 @@
 
     const darkThreshold = Number(options.darkThreshold) || 220;
     const minInkPerRow = Math.max(3, Math.round(width * (Number(options.minInkRatio) || 0.006)));
-    const maxGap = Math.max(2, Math.round(height * (Number(options.maxGapRatio) || 0.01)));
+    // Tibetan source pages commonly place adjacent rows only a few pixels apart.
+    // A page-relative 1% gap merged separate OCR rows into one block.
+    const maxGap = Math.max(2, Math.round(height * (Number(options.maxGapRatio) || 0.003)));
     const minBandHeight = Math.max(5, Math.round(height * (Number(options.minBandHeightRatio) || 0.006)));
     const paddingY = Math.max(3, Math.round(height * (Number(options.paddingYRatio) || 0.008)));
     const paddingX = Math.max(8, Math.round(width * (Number(options.paddingXRatio) || 0.018)));
