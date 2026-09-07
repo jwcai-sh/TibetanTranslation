@@ -172,11 +172,25 @@ async def bdrc_ocr() -> JSONResponse:
 
 @app.post("/api/render-pdf-page")
 async def render_pdf_page(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    book_id: str = Form(""),
     page: int = Form(1),
     dpi: int = Form(180),
 ) -> Response:
-    content = await file.read()
+    if book_id:
+        metadata = read_json(book_id, "metadata.json")
+        source_key = str(metadata.get("source_key") or "")
+        if not source_key:
+            raise HTTPException(404, "书籍源文件不存在")
+        try:
+            content = oss_bucket().get_object(source_key).read()
+        except oss2.exceptions.NoSuchKey as exc:
+            raise HTTPException(404, "书籍源文件不存在") from exc
+    elif file:
+        content = await file.read()
+    else:
+        raise HTTPException(400, "请提供云端书籍或 PDF 文件")
+
     if not content:
         raise HTTPException(400, "上传 PDF 为空")
 

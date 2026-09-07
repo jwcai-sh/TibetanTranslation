@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260907-line-ocr-01";
+const APP_BUILD_ID = "20260907-pymupdf-render-01";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -286,10 +286,9 @@ function isCloudDeployment() {
 }
 
 function shouldUseServerPdfRenderer() {
-  // Sending an entire PDF to the cloud renderer just to display one page makes
-  // the source panel wait behind a large upload. PDF.js can render locally;
-  // retain the server renderer only for local deployments.
-  return !isCloudDeployment();
+  // Some Tibetan PDFs rely on embedded fonts that PDF.js cannot compose
+  // correctly. PyMuPDF preserves the source glyph layout on every deployment.
+  return true;
 }
 
 function configureDeploymentEndpoints() {
@@ -2641,7 +2640,11 @@ async function getRenderedPdfPageBlobWithCache(pageNum, dpi) {
 
 async function renderPdfPageBlobWithLocalService(pageNum, dpi) {
   const formData = new FormData();
-  formData.append("file", state.pdfFile, state.pdfFile.name || "source.pdf");
+  if (isCloudDeployment() && state.remoteBookId) {
+    formData.append("book_id", state.remoteBookId);
+  } else {
+    formData.append("file", state.pdfFile, state.pdfFile.name || "source.pdf");
+  }
   formData.append("page", String(pageNum));
   formData.append("dpi", String(dpi));
   const response = await fetch(`${window.location.origin}/api/render-pdf-page`, {
@@ -4587,13 +4590,15 @@ function renderProofreadSourcePanel(sourceLine, index) {
   header.append(title, renderSourcePreviewScaleControls());
   panel.appendChild(header);
 
-  const preview = createSourceBlockPreviewCanvas(sourceLine);
+  const preview = sourceLine?.estimated ? null : createSourceBlockPreviewCanvas(sourceLine);
   if (preview) {
     panel.classList.add("has-preview");
     panel.appendChild(preview);
   } else {
     const fallback = document.createElement("span");
-    fallback.textContent = "当前 block 没有可用坐标预览，可在左栏查看整页原文。";
+    fallback.textContent = sourceLine?.estimated
+      ? "旧识别结果没有逐行坐标。重新识别后显示这一行原文。"
+      : "当前 block 没有可用坐标预览，可在左栏查看整页原文。";
     panel.appendChild(fallback);
   }
 
