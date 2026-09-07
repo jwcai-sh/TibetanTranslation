@@ -3285,6 +3285,18 @@ function saveLineOcrResults({ lines, model, provider, statusMessage }) {
     errorMessage: String(line.errorMessage || ""),
   }));
   const text = normalizedLines.map((line) => line.text).join("\n").trim();
+  const hasRecognizedText = normalizedLines.some((line) => Boolean(line.text));
+  const existing = state.ocrResults.get(state.pageNum);
+  const existingText = normalizeOcrTextSpacing(existing?.text || "");
+  if (!hasRecognizedText && existingText) {
+    const failures = normalizedLines.filter((line) => line.error);
+    const detail = failures[0]?.errorMessage || "AI Vision 未返回可用文本。";
+    setStatus(
+      `第 ${state.pageNum} 页本次 AI Vision 识别失败，已保留已保存的 OCR 与人工校对内容：${detail}`,
+      "error",
+    );
+    return;
+  }
   const recognizedAt = new Date().toISOString();
   const compare = {
     note: "AI Vision 已按原文逐行识别：每个 block 与一行原文一一对应。",

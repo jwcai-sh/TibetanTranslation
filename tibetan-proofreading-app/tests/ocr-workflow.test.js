@@ -18,3 +18,10 @@ test("remote project restore retains OCR quality reviews", () => {
     "remote restore must include OCR quality reviews",
   );
 });
+
+test("a failed AI OCR retry does not overwrite saved OCR text", () => {
+  assert.ok(
+    /if \(!hasRecognizedText && existingText\) \{[\s\S]*?保留已保存的 OCR 与人工校对内容/.test(appSource),
+    "failed retries must preserve existing OCR and human corrections",
+  );
+});
