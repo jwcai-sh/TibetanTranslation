@@ -3117,7 +3117,7 @@ function normalizeOcrCompare(compare) {
   if (!compare || typeof compare !== "object") return null;
   const bdrc = normalizeOcrCompareSide(compare.bdrc || compare.bdrC || compare.left);
   const llm = normalizeOcrCompareSide(compare.llm || compare.ai || compare.right);
-  if (!bdrc.text && !llm.text) return null;
+  if (!bdrc.text && !llm.text && !bdrc.lines.some((line) => line.error) && !llm.lines.some((line) => line.error)) return null;
   return {
     note: String(compare.note || ""),
     bdrc,
@@ -3200,6 +3200,7 @@ function normalizeOcrCompareSide(side) {
           layoutVersion: String(line?.layoutVersion || ""),
           index,
           error: Boolean(line?.error),
+          errorMessage: String(line?.errorMessage || ""),
           missing: Boolean(line?.missing),
           diagnostic: Boolean(line?.diagnostic),
         };
@@ -4522,9 +4523,13 @@ function makeProofreadAiLine(compare, rawAiLine, index, fallbackBbox = null) {
     layoutVersion: String(rawAiLine?.layoutVersion || ""),
     index,
     error: Boolean(rawAiLine?.error),
+    errorMessage: String(rawAiLine?.errorMessage || ""),
     missing: Boolean(rawAiLine?.missing),
     diagnostic: Boolean(rawAiLine?.diagnostic),
   };
+  if (line.error && line.errorMessage) {
+    return { ...line, text: line.errorMessage, diagnostic: true };
+  }
   if (shouldShowAiVisionDiagnostic(compare, line, index)) {
     return makeMissingAiVisionLine(compare, index, line.bbox || fallbackBbox);
   }
@@ -5176,7 +5181,9 @@ function getAiVisionDiagnosticText(compare, index) {
   if (hasOcrSideContent(side)) {
     return `AI Vision 未返回 block ${String(index + 1).padStart(2, "0")} 的识别结果；模型可能只返回了前几行，请重新识别当前页。`;
   }
-  return "AI Vision 未返回文本；请重新识别当前页，或检查 18092 AI OCR 服务。";
+  return isCloudDeployment()
+    ? "AI Vision 未返回文本；请重新识别当前页，或检查 Zeabur AI OCR 网关和模型上游。"
+    : "AI Vision 未返回文本；请重新识别当前页，或检查 18092 AI OCR 服务。";
 }
 
 function renderOcrSourceComparison(compare) {
