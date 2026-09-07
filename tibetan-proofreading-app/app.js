@@ -1,6 +1,6 @@
 const SAMPLE_PDF_URL = "../藏文/天文历算学-本科教材 藏文40301698_部分.pdf";
 const PDF_WORKER_URL = "./vendor/pdf.worker.min.js";
-const APP_BUILD_ID = "20260907-pymupdf-render-01";
+const APP_BUILD_ID = "20260907-cloud-book-route-01";
 window.__TIBETAN_PROOFREADING_APP_BUILD_ID__ = APP_BUILD_ID;
 const CACHE_PREFIX = "tibetan-proofreading-app:v1:";
 const SOURCE_DB_NAME = "tibetan-proofreading-app-sources";
@@ -505,6 +505,13 @@ function getWorkflowFromLocation() {
 }
 
 function restoreRouteFromLocation() {
+  const cloudRoute = window.TibetanRouteUtils?.getCloudBookRoute(window.location.search);
+  if (isCloudDeployment() && cloudRoute) {
+    showWorkbenchView(cloudRoute.workflow, { updateRoute: false });
+    void resumeRemoteProject({ remoteBookId: cloudRoute.bookId, sourceName: "" }, cloudRoute.workflow);
+    return;
+  }
+
   const workflow = getWorkflowFromLocation();
   if (workflow === "ocr" || workflow === "translation") {
     showWorkbenchView(workflow, { updateRoute: false });
