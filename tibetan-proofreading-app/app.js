@@ -4442,7 +4442,7 @@ function renderProofreadMergedView() {
     const rawAiLine = aiLines[index] || { text: "", bbox: bdrcLine.bbox || finalLines[index]?.bbox || null, index };
     const aiLine = makeProofreadAiLine(compare, rawAiLine, index, rawAiLine.bbox || bdrcLine.bbox || finalLines[index]?.bbox || null);
     const exactSourceLine =
-      getSourceLineForRow(bdrcLine, aiLine) ||
+      getSourceLineForRow(aiLine, bdrcLine) ||
       getSourceLineForRow(finalLines[index], null);
     const sourceLine = exactSourceLine && !window.TibetanLineLayout?.isCurrentLineLayout(exactSourceLine)
       ? { stale: true, index }
@@ -4544,7 +4544,7 @@ function makeProofreadAiLine(compare, rawAiLine, index, fallbackBbox = null) {
     return { ...line, text: line.errorMessage, diagnostic: true };
   }
   if (shouldShowAiVisionDiagnostic(compare, line, index)) {
-    return makeMissingAiVisionLine(compare, index, line.bbox || fallbackBbox);
+    return { ...makeMissingAiVisionLine(compare, index, line.bbox || fallbackBbox), layoutVersion: line.layoutVersion };
   }
   return line;
 }
@@ -5336,6 +5336,7 @@ function getEffectiveOcrSideLines(sideData, fallbackLines = []) {
     layoutVersion: String(line?.layoutVersion || textLines[index]?.layoutVersion || fallbackLines[index]?.layoutVersion || ""),
     index,
     error: Boolean(line?.error),
+    errorMessage: String(line?.errorMessage || ""),
     missing: Boolean(line?.missing),
     diagnostic: Boolean(line?.diagnostic),
   }));
