@@ -393,7 +393,7 @@ function wireEvents() {
     setStatus("当前版本仅使用 AI Vision 识别。", "ok");
   });
   bindOptionalClick("checkTranslateButton", checkTranslateService);
-  els.ocrButton.addEventListener("click", runOcrForAllPages);
+  els.ocrButton.addEventListener("click", runOcrForCurrentPage);
   els.copyButton.addEventListener("click", copyCurrentText);
   els.downloadTextButton.addEventListener("click", downloadAllOcrText);
   els.copyAiButton.addEventListener("click", copyCurrentAiText);
@@ -949,6 +949,7 @@ async function resumeRemoteProject(project, workflow = "ocr") {
       remoteBookId: project.remoteBookId,
       ocrResults: remoteState.ocr_results || remoteState.ocrResults || {},
       translationResults: remoteState.translation_results || remoteState.translationResults || {},
+      ocrQualityReviews: remoteState.ocr_quality_reviews || remoteState.ocrQualityReviews || [],
     }));
     await loadFile(sourceFile, { skipRemoteUpload: true, remoteBookId: project.remoteBookId });
     setStatus(`已恢复“${sourceName}”及云端校对进度。`, "ok");
